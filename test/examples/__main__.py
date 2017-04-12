@@ -18,16 +18,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# tag::config-unencrypted-import[]
-from neo4j.v1 import GraphDatabase
-# end::config-unencrypted-import[]
 
-class ConfigUnencryptedExample:
-    # tag::config-unencrypted[]
-    def __init__(self, uri, user, password):
-        self._driver = GraphDatabase.driver(uri, auth=(user, password),
-                Config.build().withoutEncryption().toConfig() )
-    # end::config-unencrypted[]
-
-    def close(self):
-        self._driver.close();
+if __name__ == "__main__":
+    from os.path import dirname
+    from test.tools import run_tests
+    run_tests(dirname(__file__))

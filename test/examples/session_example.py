@@ -19,14 +19,15 @@
 # limitations under the License.
 
 # tag::session-import[]
+from base_application import BaseApplication
 # end::session-import[]
 
 class SessionExample(BaseApplication):
     def __init__(self, uri, user, password):
-        super( uri, user, password );
+        super().__init__(uri, user, password)
 
     # tag::session[]
-    def doWork(self):
+    def do_work(self):
         session = self._driver.session()
         # TODO: something with the Session
     # end::session[]

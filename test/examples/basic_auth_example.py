@@ -18,29 +18,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# tag::transaction-function-import[]
+# tag::basic-auth-import[]
 from neo4j.v1 import GraphDatabase
-# end::transaction-function-import[]
+# end::basic-auth-import[]
 
-class TransactionFunctionExample(BaseApplication):
+class BasicAuthExample:
+    # tag::basic-auth[]
     def __init__(self, uri, user, password):
-        super( uri, user, password );
+        self._driver = GraphDatabase.driver(uri, auth=(user, password))
+    # end::basic-auth[]
 
-    # tag::transaction-function[]
-    def addPerson(self, name):
-        try ( Session session = driver.session() )
-        {
-            session.writeTransaction( new TransactionWork<Integer>()
-            {
-                @Override
-                public Integer execute( Transaction tx )
-                {
-                    return createPersonNode( tx, name );
-                }
-            } );
+    def close(self):
+        self._driver.close()
 
-    def createPersonNode(self, tx, name):
-        tx.run("CREATE (a:Person {name: $name})", {"name": name})
-        return 1;
-    # end::transaction-function[]
-
+    def can_connect(self):
+        record_list = list(self._driver.session().run("RETURN 1"))
+        return int(record_list[0][0]) == 1

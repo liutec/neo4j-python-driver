@@ -20,40 +20,24 @@
 
 # tag::read-write-transaction-import[]
 from neo4j.v1 import GraphDatabase
+from base_application import BaseApplication
 # end::read-write-transaction-import[]
 
 class ReadWriteTransactionExample(BaseApplication):
     def __init__(self, uri, user, password):
-        super(uri, user, password)
+        super().__init__(uri, user, password)
 
     # tag::read-write-transaction[]
-    def addPerson(self, name):
-        try ( Session session = driver.session() )
-        {
-            session.writeTransaction( new TransactionWork<Void>()
-            {
-                @Override
-                public Void execute( Transaction tx )
-                {
-                    return createPersonNode( tx, name );
-                }
-            } );
-            return session.readTransaction( new TransactionWork<Long>()
-            {
-                @Override
-                public Long execute( Transaction tx )
-                {
-                    return matchPersonNode( tx, name );
-                }
-            } );
-        }
-    }
+    def add_person(self, name):
+        with self._driver.session() as session:
+            session.write_transaction(lambda tx: self.create_person_node(tx, name))
+            return session.read_transaction(lambda tx: self.match_person_node(tx, name))
 
-    def createPersonNode(self, tx, name):
-        tx.run("CREATE (a:Person {name: $name})", { "name": name })
-        return None;
+    def create_person_node(self, tx, name):
+        tx.run("CREATE (a:Person {name: $name})", {"name": name })
+        return None
 
-    def matchPersonNode(self, tx, name):
-        result = tx.run( "MATCH (a:Person {name: $name}) RETURN id(a)", {"name": name })
-        return result.single().get( 0 ).asLong()
+    def match_person_node(self, tx, name):
+        record_list = list(tx.run("MATCH (a:Person {name: $name}) RETURN count(a)", {"name": name }))
+        return int(record_list[0][0])
     # end::read-write-transaction[]

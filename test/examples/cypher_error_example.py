@@ -19,37 +19,27 @@
 # limitations under the License.
 
 # tag::cypher-error-import[]
-from neo4j.v1 import GraphDatabase
+from neo4j.v1 import GraphDatabase, ClientError
+from base_application import BaseApplication
 # end::cypher-error-import[]
 
 class CypherErrorExample(BaseApplication):
-    def __init__(uri, user, password):
-        super(uri, user, password)
+    def __init__(self, uri, user, password):
+        super().__init__(uri, user, password)
+
+    # FIXME: this doesn't work because read_transaction behaves
+    # differently than in Java, so this throws a ClientError
 
     # tag::cypher-error[]
-    def getEmployeeNumber(self, name):
-        session = self._driver.session()
-        {
-            return session.readTransaction( new TransactionWork<Integer>()
-            {
-                @Override
-                public Integer execute( Transaction tx )
-                {
-                    return selectEmployee( tx, name );
-                }
-            } );
-        }
-    }
+    def get_employee_number(self, name):
+        with self._driver.session() as session:
+            return session.read_transaction(lambda tx: self.select_employee(tx, name))
 
-    def selectEmployee(self, tx, name):
-        try
-        {
-            StatementResult result = tx.run( "SELECT * FROM Employees WHERE name = $name", parameters( "name", name ) );
-            return result.single().get( "employee_number" ).asInt();
-        }
-        catch ( ClientException ex )
-        {
-            System.err.println( ex.getMessage() );
-            return -1;
-        }
+    def select_employee(self, tx, name):
+        try:
+            record_list = list(tx.run("SELECT * FROM Employees WHERE name = $name", {"name": name}))
+            return int(record_list[0]["employee_number"])
+        except ClientError as e:
+            print(e.message)
+            return -1
     # end::cypher-error[]

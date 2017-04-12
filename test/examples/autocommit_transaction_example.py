@@ -20,14 +20,15 @@
 
 # tag::autocommit-transaction-import[]
 from neo4j.v1 import Session;
+from base_application import BaseApplication
 # end::autocommit-transaction-import[]
 
 class AutocommitTransactionExample(BaseApplication):
     def __init__(self, uri, user, password):
-        super(uri, user, password)
+        super().__init__(uri, user, password)
 
     # tag::autocommit-transaction[]
-    def addPerson(self, name):
+    def add_person(self, name):
         session = self._driver.session()
         session.run( "CREATE (a:Person {name: $name})", {"name": name} )
     # end::autocommit-transaction[]

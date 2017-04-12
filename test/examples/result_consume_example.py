@@ -18,19 +18,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# tag::basic-auth-import[]
+# tag::result-consume-import[]
 from neo4j.v1 import GraphDatabase
-# end::basic-auth-import[]
+from base_application import BaseApplication
+# end::result-consume-import[]
 
-class BasicAuthExample
-    # tag::basic-auth[]
+class ResultConsumeExample(BaseApplication):
     def __init__(self, uri, user, password):
-        self._driver = GraphDatabase.driver(uri, auth=(user, password))
-    # end::basic-auth[]
+        super().__init__(uri, user, password)
 
-    def close(self):
-        self._driver.close()
+    # tag::result-consume[]
+    def get_people(self):
+        with self._driver.session() as session:
+            return session.read_transaction(self.match_person_nodes)
 
-    def canConnect(self):
-        result = self._driver.session().run("RETURN 1")
-        return result.single().get( 0 ).asInt() == 1
+    def match_person_nodes(self, tx):
+        names = []
+        results = tx.run("MATCH (a:Person) RETURN a.name ORDER BY a.name")
+
+        for result in results:
+            names.append(result["a.name"])
+
+        return names
+    # end::result-consume[]
