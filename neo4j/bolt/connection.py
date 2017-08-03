@@ -51,6 +51,10 @@ DEFAULT_CONNECTION_TIMEOUT = 5.0
 DEFAULT_PORT = 7687
 DEFAULT_USER_AGENT = "neo4j-python/%s" % version
 
+DEFAULT_INPUT_BUFFER_CAPACITY = 524288
+DEFAULT_OUTPUT_BUFFER_CAPACITY = 1048576
+DEFAULT_OUTPUT_BUFFER_MAX_CHUNK_SIZE = 16384
+
 MAGIC_PREAMBLE = 0x6060B017
 
 
@@ -151,8 +155,14 @@ class Connection(object):
     def __init__(self, sock, **config):
         self.socket = sock
         self.server = ServerInfo(SocketAddress.from_socket(sock))
-        self.input_buffer = ChunkedInputBuffer()
-        self.output_buffer = ChunkedOutputBuffer()
+
+        input_buffer_capacity = config.get('input_buffer_capacity', DEFAULT_INPUT_BUFFER_CAPACITY)
+        self.input_buffer = ChunkedInputBuffer(input_buffer_capacity)
+
+        output_buffer_capacity = config.get('output_buffer_capacity', DEFAULT_OUTPUT_BUFFER_CAPACITY)
+        output_buffer_max_chunk_size = config.get('output_buffer_max_chunk_size', DEFAULT_OUTPUT_BUFFER_MAX_CHUNK_SIZE)
+        self.output_buffer = ChunkedOutputBuffer(output_buffer_capacity, output_buffer_max_chunk_size)
+
         self.packer = Packer(self.output_buffer)
         self.unpacker = Unpacker()
         self.responses = deque()
@@ -292,14 +302,20 @@ class Connection(object):
         return len(details), 1
 
     def _receive(self):
+        err_msg = None
         try:
             received = self.input_buffer.receive_message(self.socket, 8192)
+        except BufferError:
+            err_msg = "Overflow. Increase \"input_buffer_capacity\" for connection {!r}"
+            received = False
         except SocketError:
             received = False
         if not received:
             self._defunct = True
             self.close()
-            raise self.Error("Failed to read from defunct connection {!r}".format(self.server.address))
+            if not err_msg:
+                err_msg = "Failed to read from defunct connection {!r}"
+            raise self.Error(err_msg.format(self.server.address))
 
     def _unpack(self):
         unpacker = self.unpacker

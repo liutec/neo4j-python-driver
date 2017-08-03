@@ -114,6 +114,18 @@ class GraphDatabase(object):
             `user_agent`
               A custom user agent string, if required.
 
+            `input_buffer_capacity`
+              Custom input buffer size, if required.
+              Defaults to :const:`524288`
+
+            `output_buffer_capacity`
+              Custom output buffer size, if required.
+              Defaults to :const:`1048576`
+
+            `output_buffer_max_chunk_size`
+              Custom output buffer maximum chunk size, if required.
+              Defaults to :const:`16384`
+
         """
         parsed = urlparse(uri)
         try:
