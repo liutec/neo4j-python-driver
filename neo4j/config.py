@@ -64,7 +64,16 @@ default_config = {
     "connection_timeout": DEFAULT_CONNECTION_TIMEOUT,
     "keep_alive": True,
 
+    # Buffer capacity:
+    "input_buffer_capacity": 524288,
+    "output_buffer_capacity": 1048576,
+    "output_buffer_max_chunk_size": 16384,
+
     # Routing settings:
     "max_retry_time": DEFAULT_MAX_RETRY_TIME,
     "load_balancing_strategy": DEFAULT_LOAD_BALANCING_STRATEGY
 }
+
+def get_config(config, key, if_none=None):
+    return config.get(key, default_config.get(key)) or if_none
+

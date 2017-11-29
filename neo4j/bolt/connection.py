@@ -42,7 +42,7 @@ from neo4j.exceptions import ClientError, ProtocolError, SecurityError, ServiceU
 from neo4j.packstream import Packer, Unpacker
 from neo4j.util import import_best as _import_best
 from time import clock
-from neo4j.config import default_config, INFINITE, TRUST_ON_FIRST_USE
+from neo4j.config import get_config, INFINITE, TRUST_ON_FIRST_USE
 
 ChunkedInputBuffer = _import_best("neo4j.bolt._io", "neo4j.bolt.io").ChunkedInputBuffer
 ChunkedOutputBuffer = _import_best("neo4j.bolt._io", "neo4j.bolt.io").ChunkedOutputBuffer
@@ -170,16 +170,19 @@ class Connection(object):
         self.socket = sock
         self.error_handler = error_handler
         self.server = ServerInfo(SocketAddress.from_socket(sock))
-        self.input_buffer = ChunkedInputBuffer()
-        self.output_buffer = ChunkedOutputBuffer()
+        self.input_buffer = ChunkedInputBuffer(get_config(config, "input_buffer_capacity"))
+        self.output_buffer = ChunkedOutputBuffer(
+            get_config(config, "output_buffer_capacity"),
+            get_config(config, "output_buffer_max_chunk_size")
+        )
         self.packer = Packer(self.output_buffer)
         self.unpacker = Unpacker()
         self.responses = deque()
-        self._max_connection_lifetime = config.get("max_connection_lifetime", default_config["max_connection_lifetime"])
+        self._max_connection_lifetime = get_config(config, "max_connection_lifetime")
         self._creation_timestamp = clock()
 
         # Determine the user agent and ensure it is a Unicode value
-        user_agent = config.get("user_agent", default_config["user_agent"])
+        user_agent = get_config(config, "user_agent")
         if isinstance(user_agent, bytes):
             user_agent = user_agent.decode("UTF-8")
         self.user_agent = user_agent
@@ -328,14 +331,20 @@ class Connection(object):
         return len(details), 1
 
     def _receive(self):
+        err_msg = None
         try:
             received = self.input_buffer.receive_message(self.socket, 8192)
+        except BufferError:
+            err_msg = "Overflow. Increase \"input_buffer_capacity\" for connection {!r}"
+            received = False
         except SocketError:
             received = False
         if not received:
             self._defunct = True
             self.close()
-            raise self.Error("Failed to read from defunct connection {!r}".format(self.server.address))
+            if not err_msg:
+                err_msg = "Failed to read from defunct connection {!r}"
+            raise self.Error(err_msg.format(self.server.address))
 
     def _unpack(self):
         unpacker = self.unpacker
@@ -405,8 +414,8 @@ class ConnectionPool(object):
         self.connections = {}
         self.lock = RLock()
         self.cond = Condition(self.lock)
-        self._max_connection_pool_size = config.get("max_connection_pool_size", default_config["max_connection_pool_size"])
-        self._connection_acquisition_timeout = config.get("connection_acquisition_timeout", default_config["connection_acquisition_timeout"])
+        self._max_connection_pool_size = get_config(config, "max_connection_pool_size")
+        self._connection_acquisition_timeout = get_config(config, "connection_acquisition_timeout")
 
     def __enter__(self):
         return self
@@ -544,10 +553,10 @@ def connect(address, ssl_context=None, error_handler=None, **config):
         else:
             raise ValueError("Unsupported address {!r}".format(address))
         t = s.gettimeout()
-        s.settimeout(config.get("connection_timeout", default_config["connection_timeout"]))
+        s.settimeout(get_config(config, "connection_timeout"))
         s.connect(address)
         s.settimeout(t)
-        s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1 if config.get("keep_alive", default_config["keep_alive"]) else 0)
+        s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1 if get_config(config, "keep_alive") else 0)
     except SocketTimeout:
         if s:
             try:
@@ -586,7 +595,7 @@ def connect(address, ssl_context=None, error_handler=None, **config):
                 s.close()
                 raise ProtocolError("When using a secure socket, the server should always "
                                     "provide a certificate")
-            trust = config.get("trust", default_config["trust"])
+            trust = get_config(config, "trust")
             if trust == TRUST_ON_FIRST_USE:
                 from neo4j.bolt.cert import PersonalCertificateStore
                 store = PersonalCertificateStore()

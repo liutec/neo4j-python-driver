@@ -28,7 +28,7 @@ from warnings import warn
 from neo4j.exceptions import ProtocolError, ServiceUnavailable
 from neo4j.compat import urlparse
 from neo4j.exceptions import CypherError, TransientError
-from neo4j.config import default_config
+from neo4j.config import get_config
 
 from .exceptions import DriverError, SessionError, SessionExpired, TransactionError
 
@@ -144,7 +144,7 @@ class Driver(object):
 
     def __init__(self, pool, **config):
         self._pool = pool
-        self._max_retry_time = config.get("max_retry_time", default_config["max_retry_time"])
+        self._max_retry_time = get_config(config, "max_retry_time")
 
     def __del__(self):
         self.close()
@@ -227,23 +227,18 @@ class Session(object):
     # :class:`.Transaction` should be carried out.
     _bookmarks = ()
 
-    # Default maximum time to keep retrying failed transactions.
-    _max_retry_time = default_config["max_retry_time"]
-
     _closed = False
 
     def __init__(self, acquirer, access_mode, **parameters):
         self._acquirer = acquirer
         self._default_access_mode = access_mode
-        for key, value in parameters.items():
-            if key == "bookmark":
-                self._bookmarks = [value] if value else []
-            elif key == "bookmarks":
-                self._bookmarks = value or []
-            elif key == "max_retry_time":
-                self._max_retry_time = value
-            else:
-                pass  # for compatibility
+        # Default maximum time to keep retrying failed transactions.
+        self._max_retry_time = get_config(parameters, "max_retry_time")
+        if "bookmark" in parameters:
+            value = parameters["bookmark"]
+            self._bookmarks = [value] if value else []
+        elif "bookmarks" in parameters:
+            self._bookmarks = parameters["bookmarks"] or []
 
     def __del__(self):
         try:

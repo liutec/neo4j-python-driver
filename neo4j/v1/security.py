@@ -21,7 +21,7 @@
 from warnings import warn
 
 from neo4j.compat.ssl import SSL_AVAILABLE, SSLContext, PROTOCOL_SSLv23, OP_NO_SSLv2, CERT_REQUIRED
-from neo4j.config import default_config, TRUST_ALL_CERTIFICATES, TRUST_CUSTOM_CA_SIGNED_CERTIFICATES, TRUST_ON_FIRST_USE, TRUST_SIGNED_CERTIFICATES, TRUST_SYSTEM_CA_SIGNED_CERTIFICATES
+from neo4j.config import get_config, TRUST_ALL_CERTIFICATES, TRUST_CUSTOM_CA_SIGNED_CERTIFICATES, TRUST_ON_FIRST_USE, TRUST_SIGNED_CERTIFICATES, TRUST_SYSTEM_CA_SIGNED_CERTIFICATES
 
 ENCRYPTION_OFF = 0
 ENCRYPTION_ON = 1
@@ -49,10 +49,10 @@ class SecurityPlan(object):
 
     @classmethod
     def build(cls, **config):
-        encrypted = config.get("encrypted", default_config["encrypted"])
+        encrypted = get_config(config, "encrypted")
         if encrypted is None:
             encrypted = _encryption_default()
-        trust = config.get("trust", default_config["trust"])
+        trust = get_config(config, "trust")
         if encrypted:
             if not SSL_AVAILABLE:
                 raise RuntimeError("Bolt over TLS is only available in Python 2.7.9+ and "
